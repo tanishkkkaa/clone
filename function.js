@@ -10,59 +10,67 @@ function onClickFunctions(e) {
 function applyFormula(formulaType, e) {
   const formulaText = `=${formulaType}()`;
   activeCell.innerText = formulaText;
-  activeCell.addEventListener("keydown", (e) => calculateFormula(formulaType, e));
+  activeCell.addEventListener("keydown", detectManualFormula);
 }
 
 // Generalized function to handle all formulas
-function calculateFormula(formulaType, e) {
-  if (e.keyCode === 13) {
-    const formula = e.target.innerText;
-    const rangeMatch = formula.match(/\(([^)]+)\)/); // Extract range from formula
+function calculateFormula(formulaType, formula, e) {
+  const rangeMatch = formula.match(/\(([^)]+)\)/); // Extract range from formula
 
-    if (!rangeMatch) return; // Exit if no range is found
+  if (!rangeMatch) return; // Exit if no range is found
 
-    const range = rangeMatch[1];
-    const ranges = range.split(":").join(",").split(","); // Split the ranges and cells
-    let result = formulaType === "COUNT" ? 0 : formulaType === "MAX" ? -Infinity : formulaType === "MIN" ? Infinity : 0;
-    let count = 0;
+  const range = rangeMatch[1];
+  const ranges = range.split(":").join(",").split(","); // Split the ranges and cells
+  let result;
+  let count = 0;
 
-    ranges.forEach((cellRange) => {
-      const cellText = cellRange.match(/[a-zA-Z]+\d+/g);
+  // Initialize result based on formula type
+  if (formulaType === "COUNT") {
+    result = 0;
+  } else if (formulaType === "MAX") {
+    result = -Infinity;
+  } else if (formulaType === "MIN") {
+    result = Infinity;
+  } else {
+    result = 0;
+  }
 
-      if (cellText && cellText.length > 0) {
-        const { startRow, startCol, endRow, endCol } = parseRange(cellText[0], cellText[1] || cellText[0]);
+  ranges.forEach((cellRange) => {
+    const cellText = cellRange.match(/[a-zA-Z]+\d+/g);
 
-        for (let row = startRow; row <= endRow; row++) {
-          for (let col = startCol; col <= endCol; col++) {
-            const cell = data[currentSheetIndex - 1][row][col];
-            const cellValue = parseFloat(cell.innerText) || 0;
+    if (cellText && cellText.length > 0) {
+      const { startRow, startCol, endRow, endCol } = parseRange(cellText[0], cellText[1] || cellText[0]);
 
-            // Logic for different formulas
-            if (formulaType === "SUM") {
-              result += cellValue;
-            } else if (formulaType === "AVERAGE") {
-              result += cellValue;
-              count++;
-            } else if (formulaType === "COUNT") {
-              if (cell.innerText !== "") count++;
-            } else if (formulaType === "MAX") {
-              result = Math.max(result, cellValue);
-            } else if (formulaType === "MIN") {
-              result = Math.min(result, cellValue);
-            }
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          const cell = data[currentSheetIndex - 1][row][col];
+          const cellValue = parseFloat(cell.innerText) || 0;
+
+          // Logic for different formulas
+          if (formulaType === "SUM") {
+            result += cellValue;
+          } else if (formulaType === "AVERAGE") {
+            result += cellValue;
+            count++;
+          } else if (formulaType === "COUNT") {
+            if (cell.innerText !== "") count++;
+          } else if (formulaType === "MAX") {
+            result = Math.max(result, cellValue);
+          } else if (formulaType === "MIN") {
+            result = Math.min(result, cellValue);
           }
         }
       }
-    });
-
-    // For AVERAGE, divide by the number of non-empty cells
-    if (formulaType === "AVERAGE" && count > 0) {
-      result = Math.floor(result / count);
     }
+  });
 
-    activeCell.innerText = result === -Infinity || result === Infinity ? 0 : result;
-    activeCell.removeEventListener("keydown", (e) => calculateFormula(formulaType, e));
+  // For AVERAGE, divide by the number of non-empty cells
+  if (formulaType === "AVERAGE" && count > 0) {
+    result = result / count;
   }
+
+  activeCell.innerText = result === -Infinity || result === Infinity ? 0 : result;
+  activeCell.removeEventListener("keydown", detectManualFormula);
 }
 
 // Function to parse cell range into row and column indices
@@ -84,7 +92,7 @@ function detectManualFormula(e) {
 
     if (match) {
       const formulaType = match[1].toUpperCase();
-      calculateFormula(formulaType, e);
+      calculateFormula(formulaType, formula, e);
     }
   }
 }
