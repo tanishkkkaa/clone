@@ -6,157 +6,96 @@ function onClickFunctions(e) {
   functionClass.classList.toggle("show");
 }
 
+// Function to apply a formula and bind calculation to the active cell
+function applyFormula(formulaType, e) {
+  const formulaText = `=${formulaType}()`;
+  activeCell.innerText = formulaText;
+  activeCell.addEventListener("keydown", (e) => calculateFormula(formulaType, e));
+}
+
+// Generalized function to handle all formulas
+function calculateFormula(formulaType, e) {
+  if (e.keyCode === 13) {
+    const formula = e.target.innerText;
+    const range = formula.match(/\(([^)]+)\)/)[1]; // Extract range from formula
+    const ranges = range.split(":").join(",").split(","); // Split the ranges and cells
+    let result = formulaType === "COUNT" ? 0 : formulaType === "MAX" ? -Infinity : formulaType === "MIN" ? Infinity : 0;
+    let count = 0;
+
+    ranges.forEach((cellRange) => {
+      // For each range, we need to handle it accordingly
+      const cellText = cellRange.match(/[a-zA-Z]+\d+/g);
+      
+      if (cellText && cellText.length > 0) {
+        const { startRow, startCol, endRow, endCol } = parseRange(cellText[0], cellText[1] || cellText[0]);
+        
+        for (let row = startRow; row <= endRow; row++) {
+          for (let col = startCol; col <= endCol; col++) {
+            const cell = data[currentSheetIndex - 1][row][col];
+            const cellValue = parseFloat(cell.innerText) || 0;
+
+            // Logic for different formulas
+            if (formulaType === "SUM") {
+              result += cellValue;
+            } else if (formulaType === "AVERAGE") {
+              result += cellValue;
+              count++;
+            } else if (formulaType === "COUNT") {
+              if (cell.innerText !== "") count++;
+            } else if (formulaType === "MAX") {
+              result = Math.max(result, cellValue);
+            } else if (formulaType === "MIN") {
+              result = Math.min(result, cellValue);
+            }
+          }
+        }
+      }
+    });
+
+    // For AVERAGE, divide by the number of non-empty cells
+    if (formulaType === "AVERAGE" && count > 0) {
+      result = Math.floor(result / count);
+    }
+    
+    activeCell.innerText = (result === -Infinity || result === Infinity) ? 0 : result;
+    activeCell.removeEventListener("keydown", (e) => calculateFormula(formulaType, e));
+  }
+}
+
+// Function to parse cell range into row and column indices
+function parseRange(startCell, endCell) {
+  const startRow = parseInt(startCell.slice(1)) - 1; // Row is 1-based, so we subtract 1
+  const endRow = parseInt(endCell.slice(1)) - 1;
+
+  const startCol = startCell.charCodeAt(0) - 'A'.charCodeAt(0); // Convert column letter to index
+  const endCol = endCell.charCodeAt(0) - 'A'.charCodeAt(0);
+
+  return { startRow, startCol, endRow, endCol };
+}
+
+// Apply the SUM formula when the user clicks on SUM from the dropdown
 function functionSum(e) {
-  activeCell.innerText = "=SUM()";
-  activeCell.addEventListener("keydown", calculateSum);
+  applyFormula("SUM", e);
 }
 
-function calculateSum(e) {
-  if (e.keyCode === 13) {
-    let sum = 0;
-    const formula = e.target.innerText;
-    const cellText = formula.match(/[a-zA-Z]+\d+/g);
-
-    for (let i = 0; i < cellText.length; i++) {
-      here: for (let j = 0; j < data[currentSheetIndex - 1].length; j++) {
-        for (let k = 0; k < data[currentSheetIndex - 1][j].length; k++) {
-          if (
-            cellText[i].toUpperCase() === data[currentSheetIndex - 1][j][k].id
-          ) {
-            sum += parseInt(
-              data[currentSheetIndex - 1][j][k].innerText === undefined
-                ? "0"
-                : data[currentSheetIndex - 1][j][k].innerText
-            );
-            break here;
-          }
-        }
-      }
-    }
-
-    activeCell.innerText = sum;
-    activeCell.removeEventListener("keydown", calculateSum);
-  }
-}
-
+// Apply the AVERAGE formula when the user clicks on AVERAGE from the dropdown
 function functionAverage(e) {
-  activeCell.innerText = "=AVERAGE()";
-  activeCell.addEventListener("keydown", calculateAverage);
+  applyFormula("AVERAGE", e);
 }
 
-function calculateAverage(e) {
-  if (e.keyCode === 13) {
-    const formula = e.target.innerText;
-    const cellText = formula.match(/[a-zA-Z]+\d+/g);
-    console.log(cellText, formula);
-    let sum = 0;
-
-    for (let i = 0; i < cellText.length; i++) {
-      here: for (let j = 0; j < data[currentSheetIndex - 1].length; j++) {
-        for (let k = 0; k < data[currentSheetIndex - 1][j].length; k++) {
-          if (
-            cellText[i].toUpperCase() === data[currentSheetIndex - 1][j][k].id
-          ) {
-            sum += parseInt(
-              data[currentSheetIndex - 1][j][k].innerText === undefined
-                ? "0"
-                : data[currentSheetIndex - 1][j][k].innerText
-            );
-            break here;
-          }
-        }
-      }
-    }
-
-    activeCell.textContent = Math.floor(sum / cellText.length);
-    activeCell.removeEventListener("keydown", calculateAverage);
-  }
-}
-
+// Apply the COUNT formula when the user clicks on COUNT from the dropdown
 function functionCount(e) {
-  activeCell.innerText = "=COUNT()";
-  activeCell.addEventListener("keydown", calculateCount);
+  applyFormula("COUNT", e);
 }
 
-function calculateCount(e) {
-  if (e.keyCode === 13) {
-    const formula = e.target.innerText;
-    const cellText = formula.match(/[a-zA-Z]+\d+/g);
-    activeCell.textContent = cellText.length;
-    activeCell.removeEventListener("keydown", calculateCount);
-  }
-}
-
+// Apply the MAX formula when the user clicks on MAX from the dropdown
 function functionMax(e) {
-  activeCell.innerText = "=MAX()";
-  activeCell.addEventListener("keydown", calculateMax);
+  applyFormula("MAX", e);
 }
 
-function calculateMax(e) {
-  if (e.keyCode === 13) {
-    const formula = e.target.innerText;
-    const cellText = formula.match(/[a-zA-Z]+\d+/g);
-
-    let sum = -Infinity;
-
-    for (let i = 0; i < cellText.length; i++) {
-      here: for (let j = 0; j < data[currentSheetIndex - 1].length; j++) {
-        for (let k = 0; k < data[currentSheetIndex - 1][j].length; k++) {
-          if (
-            cellText[i].toUpperCase() === data[currentSheetIndex - 1][j][k].id
-          ) {
-            sum = Math.max(
-              parseInt(
-                data[currentSheetIndex - 1][j][k].innerText === ""
-                  ? "0"
-                  : data[currentSheetIndex - 1][j][k].innerText
-              ),
-              sum
-            );
-            break here;
-          }
-        }
-      }
-    }
-
-    activeCell.innerHTML = sum === -Infinity ? 0 : sum;
-    activeCell.removeEventListener("keydown", calculateMax);
-  }
-}
-
+// Apply the MIN formula when the user clicks on MIN from the dropdown
 function functionMin(e) {
-  activeCell.innerText = "=MIN()";
-  activeCell.addEventListener("keydown", calculateMin);
+  applyFormula("MIN", e);
 }
 
-function calculateMin(e) {
-  if (e.keyCode === 13) {
-    const formula = e.target.innerText;
-    const cellText = formula.match(/[a-zA-Z]+\d+/g);
-
-    let sum = Infinity;
-
-    for (let i = 0; i < cellText.length; i++) {
-      here: for (let j = 0; j < data[currentSheetIndex - 1].length; j++) {
-        for (let k = 0; k < data[currentSheetIndex - 1][j].length; k++) {
-          if (
-            cellText[i].toUpperCase() === data[currentSheetIndex - 1][j][k].id
-          ) {
-            sum = Math.min(
-              parseInt(
-                data[currentSheetIndex - 1][j][k].innerText === ""
-                  ? "0"
-                  : data[currentSheetIndex - 1][j][k].innerText
-              ),
-              sum
-            );
-            break here;
-          }
-        }
-      }
-    }
-
-    activeCell.textContent = sum === Infinity ? 0 : sum;
-    activeCell.removeEventListener("keydown", calculateMin);
-  }
-}
+// You can add other formula functions in a similar manner if needed.
